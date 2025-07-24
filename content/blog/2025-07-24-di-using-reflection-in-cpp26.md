@@ -3,6 +3,7 @@ title: Dependency Injection Using Reflection in C++26
 description: Using C++26 reflections to implement dependency injection.
 date: 2025-07-24
 tags: c++
+draft: true
 ---
 # Foreword
 If you asked me just a few years ago what will happen to C++ in the future, I would have given you a doomer answer. I honestly thought for a long time (between C++11 and C++20) that the resistance to adopting new features to the language is too strong both in the committee and the C++ community, which will ultimately end up in C++ becoming obselete.
