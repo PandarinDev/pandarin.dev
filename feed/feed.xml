@@ -5,269 +5,28 @@
   <subtitle>Barely coherent meanderings of a somewhat worldy software engineer.</subtitle>
   <link href="https://pandarin.dev/feed/feed.xml" rel="self" />
   <link href="https://pandarin.dev/" />
-  <updated>2025-07-23T00:00:00Z</updated>
+  <updated>2025-07-24T00:00:00Z</updated>
   <id>https://pandarin.dev/</id>
   <author>
     <name>Krisztián Szabó</name>
   </author>
   <entry>
-    <title>Yet Another C++20 Coroutine Tutorial</title>
-    <link href="https://pandarin.dev/blog/2025-07-23-cpp20-coroutines/" />
-    <updated>2025-07-23T00:00:00Z</updated>
-    <id>https://pandarin.dev/blog/2025-07-23-cpp20-coroutines/</id>
-    <content type="html">&lt;h1 id=&quot;preamble&quot;&gt;Preamble&lt;/h1&gt;
-&lt;p&gt;C++20 adds a bunch of cool new features to an already complicated language full of footguns: Concepts, modules, &lt;a href=&quot;https://devblogs.microsoft.com/cppblog/simplify-your-code-with-rocket-science-c20s-spaceship-operator/&quot;&gt;spaceships&lt;/a&gt; and even coroutines.
-While most of the new features are relatively straightforward, coroutines are not.
-This is further proven by the myriad of existing coroutine tutorials and guides already present on the internet. Everyone and their dog seemingly wants to write an article on coroutines, so I figured why not pile on?!&lt;/p&gt;
-&lt;p&gt;To be honest I found most of the existing documentation and guides unnecessarily complicated and confusing (often even misleading or straight up wrong), so I figured I&#39;ll try to explain things my way, and hopefully make things easier to grasp for people.&lt;/p&gt;
-&lt;p&gt;This is going to be a long article and I firmly believe this is a topic that cannot be taught in short form, so grab a snack and drink and read on. I promise I&#39;ll try to make this as short and painless as possible, but this is complicated topic, so it will require some patience and head scratching from you as well. Do not feel bad if something is not immediately obvious to you, it took me multiple attempts to mostly understand the things I write about here.&lt;/p&gt;
-&lt;h1 id=&quot;theory&quot;&gt;Theory&lt;/h1&gt;
-&lt;p&gt;In order to clear up confusion and start from a common ground I want to start with some theory. I know you are just about to scroll past this to see some code, but don&#39;t. If you do, you will be banging your head on your desk in confusion, I will point at you specifically and say the ugly words &amp;quot;I told you so&amp;quot; with a smug smile.&lt;/p&gt;
-&lt;h2 id=&quot;what-are-coroutines&quot;&gt;What are coroutines?&lt;/h2&gt;
-&lt;p&gt;Coroutines often confuse developers as a concept - most devs have heard about them, but have only foggy, vague definitions for them. Let me clear that up in one sentence:&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;A coroutine is a function that can be suspended and resumed at will.&lt;/strong&gt; That&#39;s it.&lt;/p&gt;
-&lt;p&gt;It is essentially a control flow mechanism, where you can say &amp;quot;lets give back control to the caller of this function, and if it wants to, it can later resume this function exactly in the state that it was left in&amp;quot;.&lt;/p&gt;
-&lt;p&gt;One thing that often confuses developers is &amp;quot;suspension&amp;quot; and &amp;quot;resuming&amp;quot;, somehow thinking that either of those have anything to do with parallel programming and threads. &lt;strong&gt;They do not.&lt;/strong&gt; When you suspend a coroutine control is handed back to the caller and when you resume a coroutine you do not spawn a new thread or anything like that - it is just like any other function call, except you will resume that function in the same state it was supended in (from the same line, with it&#39;s state variables being the same).&lt;/p&gt;
-&lt;p&gt;This already should make experienced engineers scratch their heads - how can you resume a function from the state that it was left in without threads and context switching? Well, the answer is that you store the state of the function not on the stack as you would normally do, but on a separate frame that is heap allocated. That frame has to be large enough to store state variables of the function as well as an &amp;quot;instruction pointer&amp;quot; that tells the coroutine mechanism where to continue the function from.&lt;/p&gt;
-&lt;h2 id=&quot;but-i-thought-coroutines-are-a-way-to-make-parallel-programs-more-efficient&quot;&gt;But I thought coroutines are a way to make parallel programs more efficient?!&lt;/h2&gt;
-&lt;p&gt;Yes and no. The reason why many developers are confused by this is because coroutines are often used in conjunction with threads to make parallelism more efficient through a concept called &lt;a href=&quot;https://en.wikipedia.org/wiki/Cooperative_multitasking&quot;&gt;&amp;quot;cooperative multitasking&amp;quot;&lt;/a&gt;. Coroutines are a key part of writing efficient parallel programs, and coroutines and thread(pool)s go together like peanut butter and jelly. But just like peanut butter is not jelly, coroutines are not threads.&lt;/p&gt;
-&lt;p&gt;Without going into too much detail before you understand the full theory, when you are waiting for something (e.g. reading a chunk of bytes from a socket) you can tell the kernel to begin the reading operation, then suspend the coroutine, and as such, return the control back to the caller - which is often a thread in a thread pool when working on parallel programs.&lt;/p&gt;
-&lt;p&gt;This way the thread in the pool is not blocked while we are reading the bytes, it can pick up a new task and start executing it. When the kernel finished reading that chunk of bytes we told it to read, it will flag the data available, for which we&#39;ll have a way of detection in place and mark the coroutine ready to run again (but not resume it immediately). This way when a thread in the threadpool is looking for work again it will see that the task is ready to be resumed and will call &lt;code&gt;.resume()&lt;/code&gt; on the coroutine handle to resume it exactly from the same state.&lt;/p&gt;
-&lt;p&gt;The brilliance of this - and the entire point of coroutines - is this not only you get to utilize your threads more efficiently, but also this way you get to avoid chaining together async operations by passing down lambdas everywhere as callbacks (aka &lt;a href=&quot;https://medium.com/@raihan_tazdid/callback-hell-in-javascript-all-you-need-to-know-296f7f5d3c1&quot;&gt;&amp;quot;callback hell&amp;quot;&lt;/a&gt;). You just write your function as you would normally do, the &amp;quot;coroutine runtime&amp;quot; will take care of the rest.&lt;/p&gt;
-&lt;p&gt;It is also super important to mention at this point that in C++20 coroutines are just a language feature, there is no library support, there is no runtime built-in. If that&#39;s what you are after, take a look at something like &lt;a href=&quot;https://github.com/lewissbaker/cppcoro&quot;&gt;cppcoro&lt;/a&gt; once you read this article and understood coroutines.&lt;/p&gt;
-&lt;h2 id=&quot;how-c-coroutines-work&quot;&gt;How C++ coroutines work&lt;/h2&gt;
-&lt;p&gt;Let me start off by explaining how the C++20 coroutine mechanism works. You are not supposed to understand this fully yet and I do encourage you to scroll back to this section occasionally and check your understanding against this chapter.&lt;/p&gt;
-&lt;p&gt;In order to define a coroutine you need a function - it only makes sense, after all coroutines are just suspendable functions. In other languages you often need to prefix these functions with keywords such as &lt;code&gt;async&lt;/code&gt;, but not in C++, we do not have any keywords in the function signature for coroutines.&lt;/p&gt;
-&lt;p&gt;What makes a coroutine a coroutine in C++ however, is that it has at least 1 of 3 keywords in its function body: &lt;code&gt;co_await&lt;/code&gt;/&lt;code&gt;co_yield&lt;/code&gt;/&lt;code&gt;co_return&lt;/code&gt;. It needs at least one of those, otherwise the function will not be considered a coroutine by the compiler.&lt;/p&gt;
-&lt;p&gt;Of course with any good function, you&#39;ll also need to define a return type (functions returning void cannot be coroutines, you&#39;ll see why). The C++ compiler will put restrictions on what return type you can use for coroutines: The return type is required to have a member called &lt;code&gt;promise_type&lt;/code&gt;. That is the only restriction the return type needs to fulfill. However, the &lt;code&gt;promise_type&lt;/code&gt; in turn is required to have much more logic:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;It must have a &lt;code&gt;get_return_object&lt;/code&gt; function that returns the return object of the coroutine&lt;/li&gt;
-&lt;li&gt;It must have a &lt;code&gt;initial_suspend&lt;/code&gt; function that returns an awaitable&lt;/li&gt;
-&lt;li&gt;It must have a &lt;code&gt;final_suspend&lt;/code&gt; function that returns an awaitable and is non-throwing (&lt;code&gt;noexcept&lt;/code&gt;)&lt;/li&gt;
-&lt;li&gt;It must have either a &lt;code&gt;return_void&lt;/code&gt; or &lt;code&gt;return_value&lt;/code&gt; function that unintuitively returns nothing&lt;/li&gt;
-&lt;li&gt;It must have an &lt;code&gt;unhandled_exception&lt;/code&gt; function&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;The last piece of this puzzle (for now) is the &lt;code&gt;std::coroutine_handle&amp;lt;promise_type&amp;gt;&lt;/code&gt; that is a handle to the coroutine itself. This coroutine handle object is the one that has the heap allocated frame inside for the function. You can use the handle to &lt;code&gt;.resume()&lt;/code&gt; the coroutine or &lt;code&gt;.destroy()&lt;/code&gt; it to deallocate the coroutine frame (if the coroutine is suspended, otherwise UB).&lt;/p&gt;
-&lt;p&gt;When you call a coroutine the compiler expands that function call and spices in some magic. That magic is:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;it alloces the coroutine frame on the heap&lt;/li&gt;
-&lt;li&gt;it instantiates the promise type (which it figures out from the return type&#39;s &lt;code&gt;promise_type&lt;/code&gt; member)&lt;/li&gt;
-&lt;li&gt;it instantiates the return object using &lt;code&gt;promise.get_return_object()&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;it checks whether the coroutine needs to be immediately suspended by calling &lt;code&gt;promise.initial_suspend()&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;if an exception happens in the function body &lt;code&gt;promise.unhandled_exception()&lt;/code&gt; is called&lt;/li&gt;
-&lt;li&gt;once the execution is complete either by reaching the end of the function or a &lt;code&gt;co_return&lt;/code&gt; the mechanism checks if the coroutine needs to be suspended one final time by calling &lt;code&gt;promise.final_suspend()&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;Let us see an example.&lt;/p&gt;
-&lt;h1 id=&quot;the-simplest-possible-coroutine-in-c-20&quot;&gt;The simplest possible coroutine in C++20&lt;/h1&gt;
-&lt;pre class=&quot;language-cpp&quot; tabindex=&quot;0&quot;&gt;&lt;code class=&quot;language-cpp&quot;&gt;&lt;span class=&quot;token keyword&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;token class-name&quot;&gt;example_return_type&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;token class-name&quot;&gt;promise_type&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;auto&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;get_return_object&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-            &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; example_return_type&lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-                std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;token class-name&quot;&gt;coroutine_handle&lt;/span&gt;&lt;span class=&quot;token operator&quot;&gt;&amp;lt;&lt;/span&gt;promise_type&lt;span class=&quot;token operator&quot;&gt;&gt;&lt;/span&gt;&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;from_promise&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token operator&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;token keyword&quot;&gt;this&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;
-            &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-        &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;suspend_never &lt;span class=&quot;token function&quot;&gt;initial_suspend&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;suspend_always &lt;span class=&quot;token function&quot;&gt;final_suspend&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;noexcept&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;return_void&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;unhandled_exception&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-    &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-
-    std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;coroutine_handle&lt;span class=&quot;token operator&quot;&gt;&amp;lt;&lt;/span&gt;promise_type&lt;span class=&quot;token operator&quot;&gt;&gt;&lt;/span&gt; handle&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-
-    &lt;span class=&quot;token operator&quot;&gt;~&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;example_return_type&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;handle&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-            handle&lt;span class=&quot;token punctuation&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;destroy&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-        &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-    &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-
-example_return_type &lt;span class=&quot;token function&quot;&gt;my_first_coroutine&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;co_return&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-
-&lt;span class=&quot;token keyword&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;auto&lt;/span&gt; my_return_obj &lt;span class=&quot;token operator&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;my_first_coroutine&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token number&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;a href=&quot;https://godbolt.org/z/xbE4nc8hT&quot;&gt;[Try it out on Godbolt]&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;Rolls off the tongue, doesn&#39;t it? Let us take in order what this does.&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;we have &lt;code&gt;example_return_type&lt;/code&gt; for the return type, that holds the handle to the coroutine&lt;/li&gt;
-&lt;li&gt;inside we define &lt;code&gt;promise_type&lt;/code&gt; that does the following:
-&lt;ul&gt;
-&lt;li&gt;defines &lt;code&gt;get_return_object()&lt;/code&gt; that returns an instance of &lt;code&gt;example_return_type&lt;/code&gt; holding a handle created from the promise
-&lt;ul&gt;
-&lt;li&gt;this is because coroutine handles are non-owning, you can think of them as pointers to promises&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;specifies &lt;code&gt;std::suspend_never&lt;/code&gt; for &lt;code&gt;initial_suspend()&lt;/code&gt;, meaning that we do not want to immediately suspend the function, keep executing it please&lt;/li&gt;
-&lt;li&gt;specifies &lt;code&gt;std::suspend_always&lt;/code&gt; for &lt;code&gt;final_suspend()&lt;/code&gt;, meaning we do actually want to suspend the coroutine once it finishes executing&lt;/li&gt;
-&lt;li&gt;defines &lt;code&gt;return_void()&lt;/code&gt; that gets called when, well... when we return a void using &lt;code&gt;co_return;&lt;/code&gt; in the function
-&lt;ul&gt;
-&lt;li&gt;you can think of it as a listener, in case you want to set something in the promise when a coroutine returns&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;defines &lt;code&gt;unhandled_exception()&lt;/code&gt; as an empty function, hoping nothing bad would happen (of course don&#39;t do this in production)&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;in the destructor of &lt;code&gt;example_return_type&lt;/code&gt; we check if the coroutine handle points to a valid coroutine and &lt;code&gt;.destroy()&lt;/code&gt; its heap allocated frame if it does
-&lt;ul&gt;
-&lt;li&gt;this is the reason why we specified &lt;code&gt;suspend_always&lt;/code&gt; for &lt;code&gt;final_suspend&lt;/code&gt;, destroying is only ever legal on suspended coroutines&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;finally, we define the coroutine itself in the form of &lt;code&gt;my_first_coroutine&lt;/code&gt;
-&lt;ul&gt;
-&lt;li&gt;the function actually does nothing, but we need to specify &lt;code&gt;co_return&lt;/code&gt; in it for the compiler to recognize as a coroutine&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;co_await&lt;/code&gt; or &lt;code&gt;co_yield&lt;/code&gt; would also work, but they do not make sense in the context of this function&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h1 id=&quot;what-is-an-awaiter&quot;&gt;What is an awaiter?&lt;/h1&gt;
-&lt;p&gt;Now that we&#39;ve seen the simplest possible coroutine let us also see an example for a coroutine that actually does something.
-In order to demonstrate &lt;code&gt;co_await&lt;/code&gt; we need to understand &amp;quot;awaitables&amp;quot; and how &lt;code&gt;co_await&lt;/code&gt; works. When we call &lt;code&gt;co_await&lt;/code&gt; we always need supply an awaiter as an argument and that awaiter will dictate whether or not we are actually going to suspend execution. This means that just because you see a &lt;code&gt;co_await&lt;/code&gt; it doesn&#39;t necessarily mean that execution will be suspended - it is a &lt;strong&gt;potential&lt;/strong&gt; suspension point.&lt;/p&gt;
-&lt;p&gt;Previously we have used &lt;code&gt;std::suspend_always&lt;/code&gt; and &lt;code&gt;std::suspend_never&lt;/code&gt; from the standard library for awaitables, but now we are going define our own.&lt;/p&gt;
-&lt;p&gt;An awaitable needs to define 3 things:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;an &lt;code&gt;await_ready()&lt;/code&gt; function that returns a boolean
-&lt;ul&gt;
-&lt;li&gt;if &lt;code&gt;true&lt;/code&gt; there is no need to suspend, whatever we are waiting for is already ready, resume the coroutine&lt;/li&gt;
-&lt;li&gt;if &lt;code&gt;false&lt;/code&gt; suspend the coroutine&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;an &lt;code&gt;await_suspend()&lt;/code&gt; function
-&lt;ul&gt;
-&lt;li&gt;this function is called when the coroutine is suspended, think of it as a &amp;quot;suspension listener&amp;quot;&lt;/li&gt;
-&lt;li&gt;this function receives the &lt;code&gt;std::coroutine_handle&amp;lt;promise_type&amp;gt;&lt;/code&gt; as an argument
-&lt;ul&gt;
-&lt;li&gt;this is useful in case you want to manipulate the promise object or if you want to forward the handle somewhere to &lt;code&gt;.resume()&lt;/code&gt; it from there later&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;for now lets just say the return type is &lt;code&gt;void&lt;/code&gt;, but it can get more complicated in advanced use cases&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;an &lt;code&gt;await_resume()&lt;/code&gt; function
-&lt;ul&gt;
-&lt;li&gt;this function is called when a coroutine is resumed, think of it as a &amp;quot;resume listener&amp;quot;&lt;/li&gt;
-&lt;li&gt;the return value of this function will be the return value of the &lt;code&gt;co_await&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;Armed with this knowledge we could write &lt;code&gt;std::suspend_always&lt;/code&gt; ourselves trivially. Lets do that as a practice example.&lt;/p&gt;
-&lt;pre class=&quot;language-cpp&quot; tabindex=&quot;0&quot;&gt;&lt;code class=&quot;language-cpp&quot;&gt;&lt;span class=&quot;token keyword&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;token class-name&quot;&gt;suspend_always&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;bool&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;await_ready&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token boolean&quot;&gt;false&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;await_suspend&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;coroutine_handle&lt;span class=&quot;token operator&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;token operator&quot;&gt;&gt;&lt;/span&gt; handle&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;await_resume&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;We simply return &lt;code&gt;false&lt;/code&gt; when asked if the thing we are waiting for is ready, thus triggering the suspension of the coroutine. Also we don&#39;t do anything when the coroutine gets suspended or resumed.&lt;/p&gt;
-&lt;p&gt;Of course this is a boring (but useful) awaiter, but we can use it to demonstrate something more novel.&lt;/p&gt;
-&lt;pre class=&quot;language-cpp&quot; tabindex=&quot;0&quot;&gt;&lt;code class=&quot;language-cpp&quot;&gt;example_return_type &lt;span class=&quot;token function&quot;&gt;my_second_coroutine&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;cout &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;token string&quot;&gt;&quot;Hello &quot;&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;co_await&lt;/span&gt; std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;suspend_always&lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;cout &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;token string&quot;&gt;&quot;world&quot;&lt;/span&gt; &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;endl&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-
-&lt;span class=&quot;token keyword&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;auto&lt;/span&gt; return_obj &lt;span class=&quot;token operator&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;my_second_coroutine&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;cout &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;token string&quot;&gt;&quot;beautiful &quot;&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    return_obj&lt;span class=&quot;token punctuation&quot;&gt;.&lt;/span&gt;handle&lt;span class=&quot;token punctuation&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;resume&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token number&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;a href=&quot;https://godbolt.org/z/c4zeG56EM&quot;&gt;[Try it out on Godbolt]&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;This is the point in the article where you first truly get to test your understanding of the things you read so far. What will this program print to standard out?&lt;/p&gt;
-&lt;p&gt;Of course the answer is somewhat obviously &amp;quot;Hello beautiful world&amp;quot;, but lets break it down.&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;We first call &lt;code&gt;my_second_coroutine()&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;Because we previously defined &lt;code&gt;initial_suspend&lt;/code&gt; as &lt;code&gt;std::suspend_never&lt;/code&gt; on &lt;code&gt;example_return_type::promise_type&lt;/code&gt;, execution begins&lt;/li&gt;
-&lt;li&gt;We print &amp;quot;Hello &amp;quot;&lt;/li&gt;
-&lt;li&gt;We &lt;code&gt;co_await std::suspend_always{}&lt;/code&gt; which returns &lt;code&gt;false&lt;/code&gt; for &lt;code&gt;await_ready()&lt;/code&gt;, suspending the coroutine&lt;/li&gt;
-&lt;li&gt;Control gets transferred back to &lt;code&gt;main&lt;/code&gt;, we print &amp;quot;beautiful &amp;quot;&lt;/li&gt;
-&lt;li&gt;We resume the coroutine using &lt;code&gt;return_obj.handle.resume()&lt;/code&gt; which first calls &lt;code&gt;await_resume()&lt;/code&gt; on the awaited &lt;code&gt;std::suspend_always&lt;/code&gt; instance&lt;/li&gt;
-&lt;li&gt;Execution of the coroutine continues, printing &amp;quot;world&amp;quot;&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;return_void&lt;/code&gt; is called on the promise object&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;final_suspend&lt;/code&gt; is called on the promise object, suspending the coroutine&lt;/li&gt;
-&lt;li&gt;When the return object goes out-of-scope we &lt;code&gt;.destroy()&lt;/code&gt; the coroutine frame&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;At this point you should understand &lt;code&gt;co_await&lt;/code&gt;, how suspension and resuming transfers the control flow back and forth between the caller and the coroutine, and the role that awaiters play in that.&lt;/p&gt;
-&lt;h1 id=&quot;let-us-write-a-generator&quot;&gt;Let us write a generator&lt;/h1&gt;
-&lt;p&gt;Generators are a thing that can be very well modelled using a coroutine and are a great candidate for demonstrating &lt;code&gt;co_yield&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;We will write the simplest possible generator that will return an integer value that gets incremented with every call.&lt;/p&gt;
-&lt;pre class=&quot;language-cpp&quot; tabindex=&quot;0&quot;&gt;&lt;code class=&quot;language-cpp&quot;&gt;&lt;span class=&quot;token keyword&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;token class-name&quot;&gt;generator_t&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;token class-name&quot;&gt;promise_type&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-
-        &lt;span class=&quot;token keyword&quot;&gt;int&lt;/span&gt; current_value&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-
-        &lt;span class=&quot;token keyword&quot;&gt;auto&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;get_return_object&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-            &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; generator_t&lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-                std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;token class-name&quot;&gt;coroutine_handle&lt;/span&gt;&lt;span class=&quot;token operator&quot;&gt;&amp;lt;&lt;/span&gt;promise_type&lt;span class=&quot;token operator&quot;&gt;&gt;&lt;/span&gt;&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;from_promise&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token operator&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;token keyword&quot;&gt;this&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;
-            &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-        &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;suspend_always &lt;span class=&quot;token function&quot;&gt;initial_suspend&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;suspend_always &lt;span class=&quot;token function&quot;&gt;final_suspend&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;noexcept&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;return_void&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;unhandled_exception&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-        std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;suspend_always &lt;span class=&quot;token function&quot;&gt;yield_value&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token keyword&quot;&gt;int&lt;/span&gt; value&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-            current_value &lt;span class=&quot;token operator&quot;&gt;=&lt;/span&gt; value&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-            &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-        &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-    &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-
-    std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;coroutine_handle&lt;span class=&quot;token operator&quot;&gt;&amp;lt;&lt;/span&gt;promise_type&lt;span class=&quot;token operator&quot;&gt;&gt;&lt;/span&gt; handle&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-
-    &lt;span class=&quot;token operator&quot;&gt;~&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;generator_t&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;handle&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-            handle&lt;span class=&quot;token punctuation&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;destroy&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-        &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-    &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-
-    &lt;span class=&quot;token keyword&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;operator&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-        handle&lt;span class=&quot;token punctuation&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;resume&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; handle&lt;span class=&quot;token punctuation&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;token function&quot;&gt;promise&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;.&lt;/span&gt;current_value&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-
-generator_t &lt;span class=&quot;token function&quot;&gt;generator&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;int&lt;/span&gt; x &lt;span class=&quot;token operator&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;token number&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token boolean&quot;&gt;true&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token keyword&quot;&gt;co_yield&lt;/span&gt; x&lt;span class=&quot;token operator&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;
-
-&lt;span class=&quot;token keyword&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token punctuation&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;auto&lt;/span&gt; gen_obj &lt;span class=&quot;token operator&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;generator&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-    std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;cout &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;gen_obj&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;endl&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;token comment&quot;&gt;// 0&lt;/span&gt;
-    std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;cout &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;gen_obj&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;endl&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;token comment&quot;&gt;// 1&lt;/span&gt;
-    std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;cout &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;gen_obj&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token operator&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; std&lt;span class=&quot;token double-colon punctuation&quot;&gt;::&lt;/span&gt;endl&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;token comment&quot;&gt;// 2&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;token number&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;token punctuation&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;&lt;a href=&quot;https://godbolt.org/z/qcbrba8KE&quot;&gt;[Try it out on Godbolt]&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;As you can see when we are using &lt;code&gt;co_yield&lt;/code&gt; in the generator function, it will call a function that is newly defined in our &lt;code&gt;promise_type&lt;/code&gt;: &lt;code&gt;yield_value()&lt;/code&gt;.
-Now the interesting thing about &lt;code&gt;yield_value&lt;/code&gt; is that it does not actually yield anything, it is just a listener that gets called whenever the function yields something. This is because &lt;code&gt;co_yield &amp;lt;expression&amp;gt;;&lt;/code&gt; is just syntactic sugar for &lt;code&gt;co_await yield_value(expression);&lt;/code&gt;.&lt;/p&gt;
-&lt;p&gt;The approach that I chose here is that during the yield I store the value in the promise, then define an &lt;code&gt;operator()&lt;/code&gt; on the return object which will simply resume the coroutine until the next suspension point, then return the value stored in the promise object.&lt;/p&gt;
-&lt;p&gt;Breaking this down we get:&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;we call &lt;code&gt;generator()&lt;/code&gt; which gets immediately suspended because &lt;code&gt;initial_suspend()&lt;/code&gt; is &lt;code&gt;std::suspend_always&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;control immediately returns to &lt;code&gt;main&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;we call the &lt;code&gt;operator()&lt;/code&gt; of the return object (repeatedly), each time resuming the coroutine which will execute until the next &lt;code&gt;co_yield&lt;/code&gt; statement&lt;/li&gt;
-&lt;li&gt;at that point &lt;code&gt;yield_value()&lt;/code&gt; stores the yielded value in the promise&lt;/li&gt;
-&lt;li&gt;because the returned awaitable of &lt;code&gt;yield_value()&lt;/code&gt; is &lt;code&gt;std::suspend_always&lt;/code&gt; the coroutine is suspended and control returns to &lt;code&gt;operator()&lt;/code&gt; of the return object&lt;/li&gt;
-&lt;li&gt;the &lt;code&gt;operator()&lt;/code&gt; will return the stored value from the promise which we print out in &lt;code&gt;main&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h1 id=&quot;my-thoughts-on-coroutines-in-c-20&quot;&gt;My thoughts on coroutines in C++20&lt;/h1&gt;
-&lt;p&gt;And with that it&#39;s a wrap. We have talked about coroutines, handles, promises, awaitables, &lt;code&gt;co_await&lt;/code&gt;/&lt;code&gt;co_yield&lt;/code&gt;/&lt;code&gt;co_return&lt;/code&gt; and more. At this point the only thing left to do is editorializing this article a bit by talking about my feelings with regards to coroutines as they are in C++20.&lt;/p&gt;
-&lt;p&gt;While I&#39;m glad the feature is there, and no doubt it will be useful for highly parallel programs I can&#39;t help but feel that in typical C++ fashion the feature is overly complicated and verbose.&lt;/p&gt;
-&lt;p&gt;I get that library support is yet to come, and as such this is a barebones way of interacting with coroutines, but do you know how the same generator example looks like in Python? I will show you now out of spite.&lt;/p&gt;
-&lt;pre class=&quot;language-python&quot; tabindex=&quot;0&quot;&gt;&lt;code class=&quot;language-python&quot;&gt;&lt;span class=&quot;token keyword&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;token function&quot;&gt;generator&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;:&lt;/span&gt;
-    x &lt;span class=&quot;token operator&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;token number&quot;&gt;0&lt;/span&gt;
-    &lt;span class=&quot;token keyword&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;token boolean&quot;&gt;True&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;:&lt;/span&gt;
-        &lt;span class=&quot;token keyword&quot;&gt;yield&lt;/span&gt; x
-        x &lt;span class=&quot;token operator&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;token number&quot;&gt;1&lt;/span&gt;
-
-gen_obj &lt;span class=&quot;token operator&quot;&gt;=&lt;/span&gt; generator&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;token keyword&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token builtin&quot;&gt;next&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;gen_obj&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token comment&quot;&gt;# 0&lt;/span&gt;
-&lt;span class=&quot;token keyword&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token builtin&quot;&gt;next&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;gen_obj&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token comment&quot;&gt;# 1&lt;/span&gt;
-&lt;span class=&quot;token keyword&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token builtin&quot;&gt;next&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;(&lt;/span&gt;gen_obj&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token punctuation&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;token comment&quot;&gt;# 2&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;This is it. This is how simple I expected C++ coroutines to be when they were announced. Of course Python being an interpreted language this is a bit of an unfair comparison, but you get the point.&lt;/p&gt;
-&lt;p&gt;Anyways, I&#39;ll let everyone make up their own mind about how they feel about the implementation of the feature, I only wanted to clarify the concept through this article. In case any of my examples make no sense to you, if you have any questions or you spotted a mistake feel free to reach out.&lt;/p&gt;
-&lt;p&gt;Have a great day, and thanks for taking the time to read through all this, hope you learned something.&lt;/p&gt;
+    <title>Dependency Injection Using Reflection in C++26</title>
+    <link href="https://pandarin.dev/blog/2025-07-24-di-using-reflection-in-cpp26/" />
+    <updated>2025-07-24T00:00:00Z</updated>
+    <id>https://pandarin.dev/blog/2025-07-24-di-using-reflection-in-cpp26/</id>
+    <content type="html">&lt;h1 id=&quot;foreword&quot;&gt;Foreword&lt;/h1&gt;
+&lt;p&gt;If you asked me just a few years ago what will happen to C++ in the future, I would have given you a doomer answer. I honestly thought for a long time (between C++11 and C++20) that the resistance to adopting new features to the language is too strong both in the committee and the C++ community, which will ultimately end up in C++ becoming obselete.&lt;/p&gt;
+&lt;p&gt;However, if you were to ask me the same question today, my answer would be completely different. Ever since it was announced that &lt;a href=&quot;https://herbsutter.com/2025/06/21/trip-report-june-2025-iso-c-standards-meeting-sofia-bulgaria/&quot;&gt;compile-time reflection will be available in C++26&lt;/a&gt;, I have a big fat smile on my face every time I think about the future of C++.&lt;/p&gt;
+&lt;p&gt;I honestly think C++26 will be revered the same way C++11 was in terms of fundamentally changing the language for the better. Or sometimes for worse. This one new language feature adds so many possibilities, it&#39;s hard to foresee all of the consequences. I&#39;m already imagining &lt;a href=&quot;https://en.wikipedia.org/wiki/Aspect-oriented_programming&quot;&gt;aspect-oriented programming&lt;/a&gt; frameworks coming to the language, something like &lt;a href=&quot;https://spring.io/projects/spring-framework&quot;&gt;Spring&lt;/a&gt; for C++. I&#39;m simultaneously giggling in horror and feeling inspired.&lt;/p&gt;
+&lt;p&gt;In order to celebrate this great news, I started thinking what would be a good way of demonstrating the uses of reflection. Now of course when talking about reflection everybodys&#39; first thought is always serialization. Booooring. Don&#39;t get me wrong, serialization is very useful, but I wanted to put a more unique spin on the topic.&lt;/p&gt;
+&lt;p&gt;So let&#39;s talk about &lt;a href=&quot;https://en.wikipedia.org/wiki/Dependency_injection&quot;&gt;dependency injection&lt;/a&gt; and &lt;a href=&quot;https://en.wikipedia.org/wiki/Inversion_of_control&quot;&gt;inversion of control&lt;/a&gt;! But only after a quick word on reflection.&lt;/p&gt;
+&lt;h1 id=&quot;what-is-reflection&quot;&gt;What is Reflection&lt;/h1&gt;
+&lt;p&gt;Reflection is the ability to query the structure of the code. It can be further categorized into compile-time reflection and runtime reflection, depending on whether you are able to query this data at runtime as well. As you can imagine runtime reflection is more powerful out of the two but it also incures a runtime overhead in that you have to store the reflection data for each of your types in the compiled binary. That in turn not only increases the size of the compiled binary, but also potentially increases memory usage, can leak data about symbols,&lt;/p&gt;
+&lt;h1 id=&quot;dependency-injection&quot;&gt;Dependency Injection&lt;/h1&gt;
+&lt;p&gt;Dependency injection is a form of inversion of control (IoC from now on), in that instead of hardcoding your dependencies you get them from the IoC container. You can imagine the IoC container as a singleton where all of your components (&amp;quot;beans&amp;quot; when using Java terminology) are registered, and when you want to instantiate an object every dependency it has is fulfilled from those registered components.&lt;/p&gt;
+&lt;p&gt;This promotes good programming habits in that you&#39;ll have all of your dependencies typically listed as constructor parameters which makes your classes easier to test. All you have to do in your test code is to change the registered components in the IoC container to mock objects and boom, you&#39;ve got yourself a sweet unit-test. Furthermore, this reduces verbosity because you will rarely be directly instantiating your objects, meaning that you don&#39;t have manually pass all the constructor parameters.&lt;/p&gt;
+&lt;p&gt;But enough talk, let us see some code.&lt;/p&gt;
 </content>
   </entry>
 </feed>
