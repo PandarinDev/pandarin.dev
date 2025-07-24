@@ -3,18 +3,18 @@
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
   <title>pandarin.dev</title>
   <subtitle>Barely coherent meanderings of a somewhat worldy software engineer.</subtitle>
-  <link href="https://pandarin.dev/pandarin.dev/feed/feed.xml" rel="self" />
-  <link href="https://pandarin.dev/pandarin.dev/" />
+  <link href="https://pandarin.dev/feed/feed.xml" rel="self" />
+  <link href="https://pandarin.dev/" />
   <updated>2025-07-23T00:00:00Z</updated>
-  <id>https://pandarin.dev/pandarin.dev/</id>
+  <id>https://pandarin.dev/</id>
   <author>
     <name>Krisztián Szabó</name>
   </author>
   <entry>
     <title>Yet Another C++20 Coroutine Tutorial</title>
-    <link href="https://pandarin.dev/pandarin.dev/blog/2025-07-23-cpp20-coroutines/" />
+    <link href="https://pandarin.dev/blog/2025-07-23-cpp20-coroutines/" />
     <updated>2025-07-23T00:00:00Z</updated>
-    <id>https://pandarin.dev/pandarin.dev/blog/2025-07-23-cpp20-coroutines/</id>
+    <id>https://pandarin.dev/blog/2025-07-23-cpp20-coroutines/</id>
     <content type="html">&lt;h1 id=&quot;preamble&quot;&gt;Preamble&lt;/h1&gt;
 &lt;p&gt;C++20 adds a bunch of cool new features to an already complicated language full of footguns: Concepts, modules, &lt;a href=&quot;https://devblogs.microsoft.com/cppblog/simplify-your-code-with-rocket-science-c20s-spaceship-operator/&quot;&gt;spaceships&lt;/a&gt; and even coroutines.
 While most of the new features are relatively straightforward, coroutines are not.
