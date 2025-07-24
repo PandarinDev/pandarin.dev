@@ -5,7 +5,7 @@ export default {
 	description: "Barely coherent meanderings of a somewhat worldy software engineer.",
 	author: {
 		name: "Krisztián Szabó",
-		email: "sz.krisztian96@gmail.com",
+		email: "contact@pandarin.dev",
 		url: "https://pandarin.dev/about"
 	}
 }
