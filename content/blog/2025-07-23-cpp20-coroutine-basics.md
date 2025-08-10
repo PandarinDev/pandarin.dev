@@ -1,8 +1,9 @@
 ---
-title: Yet Another C++20 Coroutine Tutorial
+title: C++20 Coroutine Basics
 description: A basic guide to how C++20 coroutines work under the hood.
 date: 2025-07-23
 tags: c++
+permalink: cpp20-coroutine-basics/
 ---
 # Preamble
 C++20 adds a bunch of cool new features to an already complicated language full of footguns: Concepts, modules, [spaceships](https://devblogs.microsoft.com/cppblog/simplify-your-code-with-rocket-science-c20s-spaceship-operator/) and even coroutines.
@@ -296,7 +297,7 @@ And with that it's a wrap. We have talked about coroutines, handles, promises, a
 
 While I'm glad the feature is there, and no doubt it will be useful for highly parallel programs I can't help but feel that in typical C++ fashion the feature is overly complicated and verbose.
 
-I get that library support is yet to come, and as such this is a barebones way of interacting with coroutines, but do you know how the same generator example looks like in Python? I will show you now out of spite.
+I get that library support is yet to come, and as such this is a barebones way of interacting with coroutines, but do you know how the same generator example looks like in Python?
 ```python
 def generator():
     x = 0
