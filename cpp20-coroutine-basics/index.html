@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>Yet Another C++20 Coroutine Tutorial</title>
+		<title>C++20 Coroutine Basics</title>
 		<meta name="description" content="A basic guide to how C++20 coroutines work under the hood.">
 		<link rel="alternate" href="/feed/feed.xml" type="application/atom+xml" title="pandarin.dev">
 		
@@ -498,7 +498,7 @@ pre[class*="language-diff-"] {
 				
 
 
-<h1 id="yet-another-c-20-coroutine-tutorial">Yet Another C++20 Coroutine Tutorial</h1>
+<h1 id="c-20-coroutine-basics">C++20 Coroutine Basics</h1>
 
 <ul class="post-metadata">
 	<li><time datetime="2025-07-23">23 July 2025</time></li>
@@ -777,7 +777,7 @@ Now the interesting thing about <code>yield_value</code> is that it does not act
 <h1 id="my-thoughts-on-coroutines-in-c-20">My thoughts on coroutines in C++20</h1>
 <p>And with that it's a wrap. We have talked about coroutines, handles, promises, awaitables, <code>co_await</code>/<code>co_yield</code>/<code>co_return</code> and more. At this point the only thing left to do is editorializing this article a bit by talking about my feelings with regards to coroutines as they are in C++20.</p>
 <p>While I'm glad the feature is there, and no doubt it will be useful for highly parallel programs I can't help but feel that in typical C++ fashion the feature is overly complicated and verbose.</p>
-<p>I get that library support is yet to come, and as such this is a barebones way of interacting with coroutines, but do you know how the same generator example looks like in Python? I will show you now out of spite.</p>
+<p>I get that library support is yet to come, and as such this is a barebones way of interacting with coroutines, but do you know how the same generator example looks like in Python?</p>
 <pre class="language-python" tabindex="0"><code class="language-python"><span class="token keyword">def</span> <span class="token function">generator</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
     x <span class="token operator">=</span> <span class="token number">0</span>
     <span class="token keyword">while</span> <span class="token boolean">True</span><span class="token punctuation">:</span>
@@ -796,7 +796,7 @@ gen_obj <span class="token operator">=</span> generator<span class="token punctu
 			</heading-anchors>
 		</main>
 
-		<!-- This page `/blog/2025-07-23-cpp20-coroutines/` was built on 2025-07-24T14:31:37.379Z -->
+		<!-- This page `/cpp20-coroutine-basics/` was built on 2025-08-10T16:37:41.107Z -->
 		<script type="module" src="/dist/xbxy_EL6cU.js"></script>
 	</body>
 </html>
