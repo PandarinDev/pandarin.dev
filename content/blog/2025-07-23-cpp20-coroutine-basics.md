@@ -8,14 +8,14 @@ permalink: cpp20-coroutine-basics/
 # Preamble
 C++20 adds a bunch of cool new features to an already complicated language full of footguns: Concepts, modules, [spaceships](https://devblogs.microsoft.com/cppblog/simplify-your-code-with-rocket-science-c20s-spaceship-operator/) and even coroutines.
 While most of the new features are relatively straightforward, coroutines are not.
-This is further proven by the myriad of existing coroutine tutorials and guides already present on the internet. Everyone and their dog seemingly wants to write an article on coroutines, so I figured why not pile on?!
+This is further proven by the myriad of existing coroutine tutorials and guides already present on the internet.
 
 To be honest I found most of the existing documentation and guides unnecessarily complicated and confusing (often even misleading or straight up wrong), so I figured I'll try to explain things my way, and hopefully make things easier to grasp for people.
 
-This is going to be a long article and I firmly believe this is a topic that cannot be taught in short form, so grab a snack and drink and read on. I promise I'll try to make this as short and painless as possible, but this is complicated topic, so it will require some patience and head scratching from you as well. Do not feel bad if something is not immediately obvious to you, it took me multiple attempts to mostly understand the things I write about here.
+This is going to be a long article and I firmly believe this is a topic that cannot be taught in short form, so grab a snack and drink and read on. I promise I'll try to make this as short and painless as possible, but this is complicated topic, so it will require some patience and head scratching from you as well.
 
 # Theory
-In order to clear up confusion and start from a common ground I want to start with some theory. I know you are just about to scroll past this to see some code, but don't. If you do, you will be banging your head on your desk in confusion, I will point at you specifically and say the ugly words "I told you so" with a smug smile.
+In order to clear up confusion and start from a common ground I want to start with some theory. I promise this won't be long and we'll shortly dive into the code, but it is important that we first clear up any misunderstandings and shaky preconceptions that you might have about coroutines.
 
 ## What are coroutines?
 Coroutines often confuse developers as a concept - most devs have heard about them, but have only foggy, vague definitions for them. Let me clear that up in one sentence:
@@ -36,18 +36,18 @@ Without going into too much detail before you understand the full theory, when y
 
 This way the thread in the pool is not blocked while we are reading the bytes, it can pick up a new task and start executing it. When the kernel finished reading that chunk of bytes we told it to read, it will flag the data available, for which we'll have a way of detection in place and mark the coroutine ready to run again (but not resume it immediately). This way when a thread in the threadpool is looking for work again it will see that the task is ready to be resumed and will call `.resume()` on the coroutine handle to resume it exactly from the same state.
 
-The brilliance of this - and the entire point of coroutines - is that not only you get to utilize your threads more efficiently, but also this way you get to avoid chaining together async operations by passing down lambdas everywhere as callbacks (aka ["callback hell"](https://medium.com/@raihan_tazdid/callback-hell-in-javascript-all-you-need-to-know-296f7f5d3c1)). You just write your function as you would normally do, the "coroutine scheduler" will take care of the rest.
+The brilliance of this - and the entire point of coroutines - is that not only you get to utilize your threads more efficiently, but also this way you get to avoid chaining together async operations by passing down lambdas everywhere as callbacks (also known as "callback hell"). You just write your function as you would normally do, the "coroutine scheduler" will take care of the rest.
 
-It is also super important to mention at this point that in C++20 coroutines are just a language feature, there is no library support, there is no scheduler built-in. If that's what you are after, take a look at something like [cppcoro](https://github.com/lewissbaker/cppcoro) once you read this article and understood coroutines.
+It is also super important to mention at this point that in C++20 coroutines are just a language feature, there is no library support, there is no scheduler built-in. If that is what you are after, take a look at something like [cppcoro](https://github.com/lewissbaker/cppcoro) once you read this article and understood coroutines.
 
 ## How C++ coroutines work
 Let me start off by explaining how the C++20 coroutine mechanism works. You are not supposed to understand this fully yet and I do encourage you to scroll back to this section occasionally and check your understanding against this chapter.
 
-In order to define a coroutine you need a function - it only makes sense, after all coroutines are just suspendable functions. In other languages you often need to prefix these functions with keywords such as `async`, but not in C++, we do not have any keywords in the function signature for coroutines.
+In order to define a coroutine you need a function - it only makes sense, after all coroutines are just suspendable functions. In other languages you often need to prefix these functions with keywords such as `async` or `suspend`, but not in C++, we do not have any keywords in the function signature for coroutines.
 
 What makes a coroutine a coroutine in C++ however, is that it has at least 1 of 3 keywords in its function body: `co_await`/`co_yield`/`co_return`. It needs at least one of those, otherwise the function will not be considered a coroutine by the compiler.
 
-Of course with any good function, you'll also need to define a return type (functions returning void cannot be coroutines, you'll see why). The C++ compiler will put restrictions on what return type you can use for coroutines: The return type is required to have a member called `promise_type`. That is the only restriction the return type needs to fulfill. However, the `promise_type` in turn is required to have much more logic:
+Of course with any good function, you'll also need to define a return type (functions returning `void` cannot be coroutines, you'll see why in a second). The C++ compiler will put restrictions on what return type you can use for coroutines: The return type is required to have a member called `promise_type`. That is the only restriction the return type needs to fulfill. However, the `promise_type` in turn is required to have much more logic:
 - It must have a `get_return_object` function that returns the return object of the coroutine
 - It must have a `initial_suspend` function that returns an awaitable
 - It must have a `final_suspend` function that returns an awaitable and is non-throwing (`noexcept`)
@@ -314,5 +314,3 @@ print(next(gen_obj)) # 2
 This is it. This is how simple I expected C++ coroutines to be when they were announced. Of course Python being an interpreted language this is a bit of an unfair comparison, but you get the point.
 
 Anyways, I'll let everyone make up their own mind about how they feel about the implementation of the feature, I only wanted to clarify the concept through this article. In case any of my examples make no sense to you, if you have any questions or you spotted a mistake feel free to reach out.
-
-Have a great day, and thanks for taking the time to read through all this, hope you learned something.
