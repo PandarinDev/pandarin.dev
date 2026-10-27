@@ -1,31 +1,26 @@
 ---
-title: How Apple could macOS instantly better with these accesibility features
+title: Missing macOS accessibility features
 description: A list of actionable items for Apple on how they could make macOS a better operating system if they wanted to.
-date: 2026-05-30
+date: 2026-10-27
 tags: macos, apple
 permalink: how-apple-could-make-macos-better/
-draft: true
 ---
 # Preamble
-I had my trusty old Thinkpad T15 replaced at work with an M5 Macbook Pro recently and I have some thoughts.
-First of all, the hardware truly is excellent - nothing else quite like it on the market. You get desktop class performance CPU and GPU in a portable form factor with long battery life, a beautifully CNC'd unibody chassis, great display and speakers, Thunderbolt 5 ports with 120Gbps bandwidth and all.
+I had my trusty Thinkpad T15 Gen 2 replaced at work with an M5 Macbook Pro back in May and I have some thoughts based on the last couple of months of use.
+First of all, the hardware truly is excellent - nothing else quite like it on the market. You get desktop class performance CPU and GPU in a portable form factor with long battery life, a beautifully CNC'd unibody chassis, great display and unrivaled laptop speakers.
 
-On another note however, in true Apple fashion the software is the achilles heel of the device. There are so many small features that it would literally take them a couple of days to develop and test and would improve quality of life so much on macOS. Worst of it all, almost all of these missing features are related to accessibility, yet [Apple praises themselves](https://www.apple.com/accessibility/) on how accessible all of their devices are.
+On the other hand - in true Apple fashion - while the hardware is excellent, the software leaves much to be desired. There are so many tiny missing features, that would take only a few days of engineering time to develop that would improve quality of life so much on macOS. Worst of all, almost all of these missing features are related to accessibility, yet [Apple prides themselves](https://www.apple.com/accessibility/) on accessibility. So I got thinking - why not write a list of some these features? My goal is not to spew criticism. Instead I want to write a list with actionable items that would be good enough to be ticket descriptions for each and every one of the problems that I will describe.
 
-So I got thinking, why not write a list of these features? Not just any list mind you, listing out flaws and critiquing is easy. I want to write a list with actionable items that would be good enough to be ticket descriptions for each and every one of the problems that I will list.
-
-Furthermore, I will link existing tools as reference that already implement some of these features just to prove that they can be implemented without any architectural changes to the OS. Many people point to these tools and say "just install X or Y to fix this" to which I say a firm "no". These should be built-in OS features, you should not have to download and install half a dozen third-party tools that hijack your input devices just to make the OS usable.
+Furthermore, I will link existing tools as reference that already implement some of these features just to prove that they can be implemented without any architectural changes to the OS. Some people point to these tools to say "just install X or Y to fix this", which I firmly disagree with. These should be built-in OS features. You should never have to download and install half a dozen third-party tools that hijack your input devices just to make the OS usable.
 
 # Action Items
 ## 1. Mouse handling
 As long as you use macOS with a touchpad everything is great. However, the moment you connect a mouse to your device the experience starts to fall apart.
 
 ### 1.1 Separate scrolling direction setting for touchpad vs. mouse
-The very first thing that you will encounter is that there is no way to separate the scrolling direction of your touchpad vs. your mouse wheel. This means that if you prefer natural scrolling on touchpad (which is the sane default where you drag your fingers from bottom to top to scroll the page down) you will have to scroll your mouse wheel up to scroll the page down (which is NOT the default behavior on almost any platform).
+Why would you ever tie the scroll direction of the touchpad to the scroll direction of the mouse is beyond me. Maybe Apple is doing it since the scroll is also a gesture control on their Magic Mouse product line (which is widely considered to be one of the worst Apple device in existence), and they just simply do not care about third-party accessories. This is such an unbeliavably simple missing accessibility feature that the fact that this is still missing as an OS setting has to be by design. Literally all mainstream operating systems other than macOS allow you to change scroll directions for different classes of input devices separately.
 
-The operating system lets you change the scrolling direction - however, you only get to choose a universal scrolling direction that applies to both your touch inputs and your scrollwheel inputs. This means that you get to choose if your touchpad use or your mousewheel use will be very awkward - you don't get to choose your ideal setup for them separately.
-
-This is madness. This is available as a basic setting separately for touch vs. scrollwheel on virtually all other operating systems. There are at least a dozen utilities that fix this on macOS - the most popular one is probably [LinearMouse](https://github.com/linearmouse/linearmouse) or [Scroll-Reverser](https://github.com/pilotmoon/scroll-reverser), but [Karabiner-Elements](https://github.com/pqrs-org/Karabiner-Elements) can also do this.
+There are at least a dozen utilities that fixes this - the most popular one is probably [LinearMouse](https://github.com/linearmouse/linearmouse) or [Scroll-Reverser](https://github.com/pilotmoon/scroll-reverser), but [Karabiner-Elements](https://github.com/pqrs-org/Karabiner-Elements) can also do this.
 
 **Solution:** macOS already has a "Mouse & Trackpad" screen in the System Settings application with separate "Trackpad Options" and "Mouse Options" submenus. Simply add scroll direction comboboxes there where the user can decide if they want natural or reversed scroll direction for the selected input type. Bonus points if you can set these settings per device (where the implementation would store the scroll direction for the device per HID vendor+product ID).
 
@@ -37,7 +32,7 @@ There are a bunch of different tools that implement this feature, I can once aga
 **Solution**: macOS already has "back" and "forward" gestures implemented for touchpad - in fact, that is what the mentioned third-party devices are simulating when pressing side buttons. Simply add a system setting in the "Mouse" screen to enable the side button back and forward functionality.
 
 ## 2. Display support
-Display support on macOS is weird. Everything is optimized for integer multipliers of 110 PPI (pixels per inch) displays. Apple themselves are targeting 220 PPI for their own displays, which is what they are calling "retina" - basically this is a good threshold where individual pixels are no longer visible for the naked eye, so everything is super sharp. But this requirement is not easy to fulfill and even in 2026 there are not many monitors with such high PPI, especially in your run of the mill office environment.
+Display support on macOS is weird. Everything is optimized for integer multipliers of 110 PPI (pixels per inch) displays. Apple themselves are targeting 220 PPI for their own displays, which is what they are calling "retina" - basically this is a good threshold where individual pixels are no longer visible to the naked eye, so everything is super sharp. But this requirement is not easy to fulfill and even in 2026 there are not many monitors with such high PPI, especially in your run of the mill office environment where 1080p screens are most common.
 
 The problem here is that if you are running a monitor that has lower than 110 PPI or higher than 110 PPI but lower than 220 PI you will have all UI elements either be smaller or larger than intended, depending on which scaling option you select in display settings. And there are not that many scaling options to choose from to begin with.
 
@@ -80,15 +75,15 @@ and this will persist until the next reboot. You could just save this to a scrip
 **Solution:** Inside the existing modifier key remapping window allow separate remapping for left and right Options and Command keys.
 
 ### 3.2 Better custom keyboard layout support
-Some of the more niche keyboard layouts have really, really bad support on macOS. I am Hungarian and I have used a Hungarian keyboard layout all my life - both for typing out regular text and for programming -, so I will use that as an example, but everything I say here applies to custom keyboard layouts as a whole.
+Some of the more niche keyboard layouts have really, really bad support on macOS. I am Hungarian and I have used a Hungarian keyboard layout all my life, both for typing out regular text and for programming. I understand that this is a niche problem, but it highlights why keyboard layout customizability matters so bear with me here.
 
-Programming is a great example why Apple's more niche keyboard layouts are bad. Hungarian keyboard layout requires keyboard modifiers (AltGr on Windows, Option on Mac) for almost all of the special characters such as `@`, `$`, `&`, `|`, `/`, `\`, `<`, `>`, `;` and more. All of these special characters are very frequently used in programming.
+Programming is a great example why some of Apple's built-in keyboard layouts are bad. Hungarian keyboard layout requires keyboard modifiers (AltGr on Windows, Option on Mac) for almost all of the special characters such as `@`, `$`, `&`, `|`, `/`, `\`, `<`, `>`, `;` and more. All of these special characters are very frequently used in programming.
 
 There are multiple problems around this:
 - Apple's own Hungarian keyboard layout places all of these special characters in different locations than the standard Hungarian keyboard layout
 - Apple does not show the location of special characters on their keyboard
 
-Now problem #1 is bad enough already, as it means that if you are switching between PC and Mac your muscle memory is completely ruined, but problem #2 is even worse I'd argue since now if your password contains special characters good look finding them on your keyboard unless you can touch type Apple's own weird layout - special characters are not shown anywhere on the keyboard itself.
+Now problem #1 is bad enough already, as it means that if you are switching between PC and Mac your muscle memory is completely ruined, but problem #2 is even worse I'd argue since now if your password contains special characters good luck finding them on your keyboard unless you can touch type Apple's own weird layout - special characters are not shown anywhere on the keyboard itself.
 
 All of these issues can be solved by installing custom keyboard layouts, however, support for this is not as good as it could be. First of all why do I need to download modified keyboard layouts such as [Hungarian_Win](https://github.com/zaki/mac-hun-keyboard) in the first place to get back the normal Hungarian keyboard layout? Why is this not built into the OS or at least why don't we have a built-in way to remap keys?
 
